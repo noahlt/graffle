@@ -57,19 +57,21 @@ function d(n, s) {
     $('#debuglist').children().last().text(s);
 }
 
+var NODE_R = 25;
 
 function make_node(x, y) {
-    var r = 25;
-    draw_circle(x, y, r, '#222', '#FCF0AD');
-
-    i = ns.length
-    ns[i] = {'x': x, 'y': y};
-    ns[i].covers = function(x, y) {
-	return square(this.x - x) + square(this.y - y) < square(r);
+    i = ns.length;
+    ns[i] = {'x': x, 'y': y, 'r': NODE_R};
+    ns[i].overlaps = function(x, y, r) {
+	return square(this.x - x) + square(this.y - y) < square(this.r + r);
     };
     ns[i].strcoords = function() { // for debugging
 	return strcoords(this.x, this.y);
-    }
+    };
+    ns[i].draw = function() {
+	draw_circle(this.x, this.y, this.r, '#222', '#FCF0AD');
+    };
+    ns[i].draw();
 }
 
 
@@ -79,7 +81,8 @@ $(document).ready(function() {
 		var canvasX = e.clientX - $(this).position().left;
 		var canvasY = e.clientY - $(this).position().top;
 		if (none(map(ns, function(n) {
-				   return n.covers(canvasX, canvasY); }))) {
+				return n.overlaps(canvasX, canvasY, NODE_R);
+			    }))) {
 		    make_node(canvasX, canvasY);
 		}
 	    });

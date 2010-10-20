@@ -2,6 +2,8 @@ var c; // canvas
 var ns = new Array(0);
 
 // Utilities /////////////////////////////////////////////////////////////////
+//
+// General-purpose functions which should be useful in any project.
 
 function map(a, f) {
     r = new Array(a.length);
@@ -41,6 +43,10 @@ function strcoords(x, y) {
     return '(' + x + ', ' + y + ')';
 }
 
+// Tools //////////////////////////////////////////////////////////////////////
+//
+// Functions which help in this project, but probably not so much in others.
+
 function draw_circle(x, y, r, borderstyle, fillstyle) {
     c.beginPath();
     // syntax reminder: x, y, r, start_angle, end_angle, anticlockwise
@@ -53,6 +59,15 @@ function draw_circle(x, y, r, borderstyle, fillstyle) {
     c.fill();
 }
 
+function draw_line(x1, y1, x2, y2) {
+    c.beginPath();
+    c.moveTo(x1, y1);
+    c.lineTo(x2, y2);
+    c.closePath();
+    c.strokeStyle = '#222';
+    c.stroke();
+}
+
 // Print debugging information.
 function d(n, s) {
     // Make sure the list is big enough.
@@ -62,7 +77,11 @@ function d(n, s) {
     $('#debuglist').children().last().text(s);
 }
 
+// The App ////////////////////////////////////////////////////////////////////
+
 var NODE_R = 25;
+
+var activeNode= false; // points to the node which a user has clicked.
 
 function make_node(x, y) {
     i = ns.length;
@@ -84,24 +103,46 @@ function make_node(x, y) {
     ns[i].drawDefault();
 }
 
+function connectNodes(a, b) {
+    // we should actually change some attribute
+    // of the nodes instead of just drawing.
+    draw_line(a.x, a.y, b.x, b.y);
+    a.drawDefault();
+    b.drawDefault();
+}
+    
+
 
 $(document).ready(function() {
 	c = $('#main').get(0).getContext('2d');
-	$('#main').click(function(e) {
+
+	$('#main').mousedown(function(e) {
+		e.preventDefault();
 		var canvasX = e.clientX - $(this).position().left;
 		var canvasY = e.clientY - $(this).position().top;
-		if (none(map(ns, function(n) {
+		foreach(ns, function(n) {
+			// if the user mousedowned on a node...
+			if (n.covers(canvasX, canvasY)) {
+			    n.drawActive();
+			    activeNode = n;
+			}});
+	    });
+
+	$('#main').mouseup(function(e) {
+		e.preventDefault();
+		var canvasX = e.clientX - $(this).position().left;
+		var canvasY = e.clientY - $(this).position().top;
+		if (activeNode) {
+		    foreach(ns, function(n) {
+			    if (n.covers(canvasX, canvasY)) {
+				connectNodes(activeNode, n);
+			    }});
+		    activeNode.drawDefault();
+		    activeNode = false;
+		} else if (none(map(ns, function(n) {
 				return n.overlaps(canvasX, canvasY, NODE_R);
 			    }))) {
 		    make_node(canvasX, canvasY);
 		}
-	    });
-	$('#main').mousedown(function(e) {
-		var canvasX = e.clientX - $(this).position().left;
-		var canvasY = e.clientY - $(this).position().top;
-		foreach(ns, function(n) {
-			if (n.covers(canvasX, canvasY)) {
-			    n.drawActive();
-			}});
 	    });
     });

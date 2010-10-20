@@ -4,9 +4,28 @@ var ns = new Array(0);
 // Utilities /////////////////////////////////////////////////////////////////
 
 function map(a, f) {
-  for (var i = 0; i < a.length; i++)
-    a[i] = f(a[i]);
-  return a;
+    r = new Array(a.length);
+    for (var i = 0; i < a.length; i++)
+	r[i] = f(a[i]);
+    return r;
+}
+
+function all(a) {
+    for (var i=0; i < a.length; i++) {
+	if (a[i] == false) {
+	    return false;
+	}
+    }
+    return true;
+}
+
+function none(a) {
+    for (var i = 0; i < a.length; i++) {
+	if (a[i] == true) {
+	    return false;
+	}
+    }
+    return true;
 }
 
 function draw_circle(x, y, r, borderstyle, fillstyle) {
@@ -47,7 +66,7 @@ function draw_node(x, y) {
     ns[ns.length] = {'x': x, 'y': y};
     ns[ns.length-1].covers = function(x, y) {
 	return (this.x - x)^2 + (this.y - y)^2 < r^2;
-    };
+	};
 }
 
 
@@ -56,12 +75,12 @@ $(document).ready(function() {
 	$('#main').click(function(e) {
 		var canvasX = e.clientX - $(this).position().left;
 		var canvasY = e.clientY - $(this).position().top;
-		map(ns, function(n) {
-			d1(n.x);
-			d2(canvasX);
-			return n.covers(canvasX, canvasY);
-		    });
-		draw_node(canvasX, canvasY);
-		return true;
+		if (none(map(ns, function(n) {
+				return n.covers(canvasX, canvasY);
+			    }))) {
+		    draw_node(canvasX, canvasY);
+		    console.log('-');
+		    console.log(ns);
+		}
 	    });
     });

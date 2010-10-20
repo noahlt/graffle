@@ -28,6 +28,14 @@ function none(a) {
     return true;
 }
 
+function square(x) {
+    return Math.pow(x, 2);
+}
+
+function strcoords(x, y) {
+    return '(' + x + ', ' + y + ')';
+}
+
 function draw_circle(x, y, r, borderstyle, fillstyle) {
     c.beginPath();
     // syntax reminder: x, y, r, start_angle, end_angle, anticlockwise
@@ -40,14 +48,6 @@ function draw_circle(x, y, r, borderstyle, fillstyle) {
     c.fill();
 }
 
-function d1(s) {
-    $('#d1').text(s);
-}
-
-function d2(s) {
-    $('#d2').text(s);
-}
-
 // Print debugging information.
 function d(n, s) {
     // Make sure the list is big enough.
@@ -58,15 +58,18 @@ function d(n, s) {
 }
 
 
-
-function draw_node(x, y) {
+function make_node(x, y) {
     var r = 25;
     draw_circle(x, y, r, '#222', '#FCF0AD');
 
-    ns[ns.length] = {'x': x, 'y': y};
-    ns[ns.length-1].covers = function(x, y) {
-	return (this.x - x)^2 + (this.y - y)^2 < r^2;
-	};
+    i = ns.length
+    ns[i] = {'x': x, 'y': y};
+    ns[i].covers = function(x, y) {
+	return square(this.x - x) + square(this.y - y) < square(r);
+    };
+    ns[i].strcoords = function() { // for debugging
+	return strcoords(this.x, this.y);
+    }
 }
 
 
@@ -76,11 +79,8 @@ $(document).ready(function() {
 		var canvasX = e.clientX - $(this).position().left;
 		var canvasY = e.clientY - $(this).position().top;
 		if (none(map(ns, function(n) {
-				return n.covers(canvasX, canvasY);
-			    }))) {
-		    draw_node(canvasX, canvasY);
-		    console.log('-');
-		    console.log(ns);
+				   return n.covers(canvasX, canvasY); }))) {
+		    make_node(canvasX, canvasY);
 		}
 	    });
     });

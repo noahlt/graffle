@@ -85,7 +85,10 @@ var activeNode= false; // points to the node which a user has clicked.
 
 function make_node(x, y) {
     i = ns.length;
-    ns[i] = {'x': x, 'y': y, 'r': NODE_R};
+    ns[i] = {'x': x, 'y': y, 'r': NODE_R, 'connections': new Array(0)};
+    ns[i].connectTo = function(n) {
+	this.connections.push(n);
+    }
     ns[i].overlaps = function(x, y, r) {
 	return square(this.x - x) + square(this.y - y) < square(this.r + r);
     };
@@ -109,8 +112,9 @@ function connectNodes(a, b) {
     draw_line(a.x, a.y, b.x, b.y);
     a.drawDefault();
     b.drawDefault();
+    a.connectTo(b);
+    b.connectTo(a);
 }
-    
 
 
 $(document).ready(function() {

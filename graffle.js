@@ -23,6 +23,13 @@ function draw_circle(x, y, r, borderstyle, fillstyle) {
     c.fill();
 }
 
+function draw_text(x, y, s) {
+    c.font = '12px sans-serif';
+    c.textAlign = 'center';
+    c.fillStyle = '#222';
+    c.fillText(s, x, y);
+}
+
 function draw_line(x1, y1, x2, y2) {
     c.beginPath();
     c.moveTo(x1, y1);
@@ -47,13 +54,29 @@ var NODE_R = 25;
 
 var activeNode= false; // points to the node which a user has clicked.
 
-function make_node(x, y) {
-    n =  {'x': x, 'y': y, 'r': NODE_R, 'connections': new Array(0)};
+function find_node(name) {
+    nodesWithThisName = ns.filter(function(n) { return n.name == name; });
+    if (1 < nodesWithThisName.length) {
+	alert('There are multiple nodes named ' + name + '! I give up.');
+    } else {
+	return nodesWithThisName[0];
+    }
+}
+
+function make_node(x, y, name) {
+    n =  {'x': x, 'y': y, 'r': NODE_R,
+	  'connections': new Array(0), 'name': name};
+
     // graph methods
     n.connectTo = function(n) {
 	this.connections.push(n);
     }
-    n.children = function(n) { } // START HERE
+    n.children = function() {
+	y = this.y; // hackish way to get n.y into following lambda's namespace
+	return this.connections.filter(function(a) {
+		return a.y > y;
+	    });
+    };
 	
     // geometry methods
     n.overlaps = function(x, y, r) {
@@ -65,19 +88,24 @@ function make_node(x, y) {
     n.strcoords = function() { // for debugging
 	return strcoords(this.x, this.y);
     };
+
     // drawing methods
     n.draw = function(bgcolor) {
 	draw_circle(this.x, this.y, this.r, '#222', bgcolor);
+	draw_text(this.x, this.y, this.name);
     };
     n.drawDefault = function() { this.draw('#FCF0AD'); }
     n.drawActive = function() { this.draw('#669'); }
     ns.push(n);
     n.drawDefault();
+    // Allowing empty name strings then setting them interactively is a hack.
+    if (n.name == '') {
+	n.name = prompt("This node's name:");
+	n.drawDefault();
+    }
 }
 
 function connectNodes(a, b) {
-    // we should actually change some attribute
-    // of the nodes instead of just drawing.
     draw_line(a.x, a.y, b.x, b.y);
     a.drawDefault();
     b.drawDefault();
@@ -85,37 +113,72 @@ function connectNodes(a, b) {
     b.connectTo(a);
 }
 
+function graffleEval(n) {
+    if (n.name == '+') {
+	return n.children()
+	        .map(graffleEval)
+	        .reduce(function(a,b) { return a+b; });
+    } else if (!isNaN(parseFloat(n.name))) {
+	return parseFloat(n.name);
+    } else {
+	alert(n.name + ' is not callable.');
+    }
+}
 
 $(document).ready(function() {
-	c = $('#main').get(0).getContext('2d');
+  $('#main').bind('contextmenu', function(e) { return false; });
 
-	$('#main').mousedown(function(e) {
-		e.preventDefault();
-		var canvasX = e.clientX - $(this).position().left;
-		var canvasY = e.clientY - $(this).position().top;
-		ns.forEach(function(n) {
-			// if the user mousedowned on a node...
-			if (n.covers(canvasX, canvasY)) {
-			    n.drawActive();
-			    activeNode = n;
-			}});
-	    });
+  c = $('#main').get(0).getContext('2d');
 
-	$('#main').mouseup(function(e) {
-		e.preventDefault();
-		var canvasX = e.clientX - $(this).position().left;
-		var canvasY = e.clientY - $(this).position().top;
-		if (activeNode) {
-		    ns.forEach(function(n) {
-			    if (n.covers(canvasX, canvasY)) {
-				connectNodes(activeNode, n);
-			    }});
-		    activeNode.drawDefault();
-		    activeNode = false;
-		} else if (ns.every(function(n) {
-				return !n.overlaps(canvasX, canvasY, NODE_R);
-			    })) {
-		    make_node(canvasX, canvasY);
-		}
-	    });
+  $('#main')
+      .mousedown(function(e) {
+	      e.preventDefault();
+	      var canvasX = e.clientX - $(this).position().left;
+	      var canvasY = e.clientY - $(this).position().top;
+	      if (e.which == 1) { // left click
+		  ns.forEach(function(n) {
+			  // if the user mousedowned on a node...
+			  if (n.covers(canvasX, canvasY)) {
+			      n.drawActive();
+			      activeNode = n;
+			  }
+		      });
+	      } else if (e.which == 3) { // right click
+	      }
+	  })
+      .mouseup(function(e) {
+	      e.preventDefault();
+	      var canvasX = e.clientX - $(this).position().left;
+	      var canvasY = e.clientY - $(this).position().top;
+	      if (e.which == 1) { // left click
+		  if (activeNode) {
+		      ns.forEach(function(n) {
+			      if (n.covers(canvasX, canvasY)) {
+				  connectNodes(activeNode, n);
+			      }});
+		      activeNode.drawDefault();
+		      activeNode = false;
+		  } else {
+		      ns.forEach(function(n) {
+			      if (ns.every(function(n) {
+					  return !n.overlaps(canvasX, canvasY,
+							     NODE_R);
+				      })) {
+				  make_node(canvasX, canvasY, '');
+			      }});
+		  }
+	      } else if (e.which == 3) { // right click
+		  ns.forEach(function(n) {
+			  if (n.covers(canvasX, canvasY)) {
+			      d(1, 'Result: ' + graffleEval(n));
+			  }
+		      });
+	      }
+	  });
+	
+  make_node(200, 50, '+');
+  make_node(100, 150, '1');
+  make_node(300, 150, '2');
+  connectNodes(find_node('+'), find_node('1'));
+  connectNodes(find_node('+'), find_node('2'));
     });

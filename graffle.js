@@ -2,38 +2,6 @@ var c; // canvas
 var ns = new Array(0);
 
 // Utilities /////////////////////////////////////////////////////////////////
-//
-// General-purpose functions which should be useful in any project.
-
-function map(a, f) {
-    r = new Array(a.length);
-    for (var i = 0; i < a.length; i++)
-	r[i] = f(a[i]);
-    return r;
-}
-
-function foreach(a, f) {
-    for (var i=0; i < a.length; i++)
-	f(a[i]);
-}
-
-function all(a) {
-    for (var i=0; i < a.length; i++) {
-	if (a[i] == false) {
-	    return false;
-	}
-    }
-    return true;
-}
-
-function none(a) {
-    for (var i = 0; i < a.length; i++) {
-	if (a[i] == true) {
-	    return false;
-	}
-    }
-    return true;
-}
 
 function square(x) {
     return Math.pow(x, 2);
@@ -42,10 +10,6 @@ function square(x) {
 function strcoords(x, y) {
     return '(' + x + ', ' + y + ')';
 }
-
-// Tools //////////////////////////////////////////////////////////////////////
-//
-// Functions which help in this project, but probably not so much in others.
 
 function draw_circle(x, y, r, borderstyle, fillstyle) {
     c.beginPath();
@@ -84,26 +48,31 @@ var NODE_R = 25;
 var activeNode= false; // points to the node which a user has clicked.
 
 function make_node(x, y) {
-    i = ns.length;
-    ns[i] = {'x': x, 'y': y, 'r': NODE_R, 'connections': new Array(0)};
-    ns[i].connectTo = function(n) {
+    n =  {'x': x, 'y': y, 'r': NODE_R, 'connections': new Array(0)};
+    // graph methods
+    n.connectTo = function(n) {
 	this.connections.push(n);
     }
-    ns[i].overlaps = function(x, y, r) {
+    n.children = function(n) { } // START HERE
+	
+    // geometry methods
+    n.overlaps = function(x, y, r) {
 	return square(this.x - x) + square(this.y - y) < square(this.r + r);
     };
-    ns[i].covers = function(x, y) {
+    n.covers = function(x, y) {
 	return square(this.x - x) + square(this.y - y) < square(this.r);
     };
-    ns[i].strcoords = function() { // for debugging
+    n.strcoords = function() { // for debugging
 	return strcoords(this.x, this.y);
     };
-    ns[i].draw = function(bgcolor) {
+    // drawing methods
+    n.draw = function(bgcolor) {
 	draw_circle(this.x, this.y, this.r, '#222', bgcolor);
     };
-    ns[i].drawDefault = function() { this.draw('#FCF0AD'); }
-    ns[i].drawActive = function() { this.draw('#669'); }
-    ns[i].drawDefault();
+    n.drawDefault = function() { this.draw('#FCF0AD'); }
+    n.drawActive = function() { this.draw('#669'); }
+    ns.push(n);
+    n.drawDefault();
 }
 
 function connectNodes(a, b) {
@@ -124,7 +93,7 @@ $(document).ready(function() {
 		e.preventDefault();
 		var canvasX = e.clientX - $(this).position().left;
 		var canvasY = e.clientY - $(this).position().top;
-		foreach(ns, function(n) {
+		ns.forEach(function(n) {
 			// if the user mousedowned on a node...
 			if (n.covers(canvasX, canvasY)) {
 			    n.drawActive();
@@ -137,15 +106,15 @@ $(document).ready(function() {
 		var canvasX = e.clientX - $(this).position().left;
 		var canvasY = e.clientY - $(this).position().top;
 		if (activeNode) {
-		    foreach(ns, function(n) {
+		    ns.forEach(function(n) {
 			    if (n.covers(canvasX, canvasY)) {
 				connectNodes(activeNode, n);
 			    }});
 		    activeNode.drawDefault();
 		    activeNode = false;
-		} else if (none(map(ns, function(n) {
-				return n.overlaps(canvasX, canvasY, NODE_R);
-			    }))) {
+		} else if (ns.every(function(n) {
+				return !n.overlaps(canvasX, canvasY, NODE_R);
+			    })) {
 		    make_node(canvasX, canvasY);
 		}
 	    });

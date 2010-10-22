@@ -69,7 +69,10 @@ function make_node(x, y, name) {
 
     // graph methods
     n.connectTo = function(n) {
+	// insert n into the list of connections. keep connections
+	// sorted by their x position.
 	this.connections.push(n);
+	this.connections.sort(function(a, b) { return a.x - b.x; });
     }
     n.children = function() {
 	y = this.y; // hackish way to get n.y into following lambda's namespace
@@ -113,11 +116,32 @@ function connectNodes(a, b) {
     b.connectTo(a);
 }
 
+
 function graffleEval(n) {
+    // Special forms first.
+    if (n.name == 'leaf?') {
+	if (n.children().length == 1) {
+	    if (n.children()[0].children().length == 0) {
+		return 't';
+	    } else {
+		return 'f';
+	    }
+	} else {
+	    alert('Error: atom? expected one argument, got ' +
+		  n.children().length);
+	    return;
+	}
+    }
+    // Regular functions.
+    children = n.children().map(graffleEval);
     if (n.name == '+') {
-	return n.children()
-	        .map(graffleEval)
-	        .reduce(function(a,b) { return a+b; });
+	return children.reduce(function(a,b) { return a + b; });
+    } else if (n.name == '-') {
+	return children.reduce(function(a, b) { return a - b; });
+    } else if (n.name == '*') {
+	return children.reduce(function(a, b) { return a * b; });
+    } else if (n.name == '/') {
+	return children.reduce(function(a, b) { return a / b; });
     } else if (!isNaN(parseFloat(n.name))) {
 	return parseFloat(n.name);
     } else {
@@ -159,13 +183,12 @@ $(document).ready(function() {
 		      activeNode.drawDefault();
 		      activeNode = false;
 		  } else {
-		      ns.forEach(function(n) {
-			      if (ns.every(function(n) {
-					  return !n.overlaps(canvasX, canvasY,
-							     NODE_R);
-				      })) {
-				  make_node(canvasX, canvasY, '');
-			      }});
+		      if (ns.every(function(n) {
+				  return !n.overlaps(canvasX, canvasY,
+						     NODE_R);
+			      })) {
+			  make_node(canvasX, canvasY, '');
+		      };
 		  }
 	      } else if (e.which == 3) { // right click
 		  ns.forEach(function(n) {
@@ -175,10 +198,4 @@ $(document).ready(function() {
 		      });
 	      }
 	  });
-	
-  make_node(200, 50, '+');
-  make_node(100, 150, '1');
-  make_node(300, 150, '2');
-  connectNodes(find_node('+'), find_node('1'));
-  connectNodes(find_node('+'), find_node('2'));
     });

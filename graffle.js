@@ -80,7 +80,13 @@ function make_node(x, y, name) {
 		return a.y > y;
 	    });
     };
-	
+    n.toChildren = function(f) {
+	this.children().forEach(function(child) {
+		f(child);
+		child.toChildren(f);
+	    });
+    }
+
     // geometry methods
     n.overlaps = function(x, y, r) {
 	return square(this.x - x) + square(this.y - y) < square(this.r + r);
@@ -99,13 +105,13 @@ function make_node(x, y, name) {
     };
     n.drawDefault = function() { this.draw('#FCF0AD'); }
     n.drawActive = function() { this.draw('#669'); }
-    ns.push(n);
     n.drawDefault();
     // Allowing empty name strings then setting them interactively is a hack.
     if (n.name == '') {
 	n.name = prompt("This node's name:");
 	n.drawDefault();
     }
+    ns.push(n);
 }
 
 function connectNodes(a, b) {
@@ -168,6 +174,14 @@ $(document).ready(function() {
 			  }
 		      });
 	      } else if (e.which == 3) { // right click
+		  ns.forEach(function(n) {
+			  if (n.covers(canvasX, canvasY)) {
+			      n.drawActive();
+			      n.toChildren(function(child) {
+				      child.drawActive();
+				  });
+			  }
+		      });
 	      }
 	  })
       .mouseup(function(e) {
@@ -192,6 +206,7 @@ $(document).ready(function() {
 		  }
 	      } else if (e.which == 3) { // right click
 		  ns.forEach(function(n) {
+			  n.drawDefault();
 			  if (n.covers(canvasX, canvasY)) {
 			      d(1, 'Result: ' + graffleEval(n));
 			  }

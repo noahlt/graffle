@@ -39,10 +39,10 @@ function draw_line(c, x1, y1, x2, y2) {
 // Print debugging information.
 function d(n, s) {
     // Make sure the list is big enough.
-    while ($('#debuglist').children().length < n) {
-	$('#debuglist').children().last().after('<li>.</li>');
+    while ($('#debuglist').children.length < n) {
+	$('#debuglist').children.last().after('<li>.</li>');
     }
-    $('#debuglist').children().last().text(s);
+    $('#debuglist').children.last().text(s);
 }
 
 // The App ////////////////////////////////////////////////////////////////////
@@ -115,7 +115,8 @@ function makeSpace(name, canvasElement) {
 		  space.nodes.forEach(function(n) {
 			  n.drawDefault();
 			  if (n.covers(canvasX, canvasY)) {
-			      placeNode(50, 50, graffleEval(n), resultspace);
+			      var r = graffleEval(n);
+			      placeNode(50, 50, r, resultspace);
 			  }
 		      });
 	      }
@@ -125,23 +126,15 @@ function makeSpace(name, canvasElement) {
 }
 
 function makeNode(name) {
-    n = { 'name': name, 'connections': new Array(0) };
+    n = { 'name': name, 'parent': null, 'children': new Array(0) };
 
     // graph methods
-    n.connectTo = function(n) {
-	// insert n into the list of connections. keep connections
-	// sorted by their x position.
-	this.connections.push(n);
-	this.connections.sort(function(a, b) { return a.x - b.x; });
+    n.addChild = function(child) {
+	this.children.push(child);
+	child.parent = this;
     }
-    n.children = function() {
-	y = this.y; // hackish way to get n.y into following lambda's namespace
-	return this.connections.filter(function(a) {
-		return a.y > y;
-	    });
-    };
     n.toChildren = function(f) {
-	this.children().forEach(function(child) {
+	this.children.forEach(function(child) {
 		f(child);
 		child.toChildren(f);
 	    });
@@ -160,6 +153,9 @@ function placeNode(x, y, node, space) {
     node.x = x;
     node.y = y;
     node.r = NODE_R;
+    if (node.children.length > 0) {
+	alert('now go make placeNode add child nodes to the same space.');
+    }
     // geometry methods
     node.overlaps = function(x, y, r) {
 	return square(this.x - x) + square(this.y - y) < square(this.r + r);
@@ -181,57 +177,84 @@ function placeNode(x, y, node, space) {
     node.drawAsResult = function() {
 	drawCircle(this.space.context, 50, 50, this.r, '#222', '#FCF0AD');
     };
+
+    // sync graphical tree with abstract tree
+    node.syncChildOrder = function() {
+	// this assumes that all children have been placed, as well.
+	this.children.sort(function(a, b) { return a.x - b.x; });
+    }
     
     node.drawDefault();
 }
 
 function connectNodes(a, b) {
     if (a.space == b.space) {
+	var parent;
+	var child;
+	if (a.y > b.y) {
+	    parent = b;
+	    child = a;
+	} else if (b.y > a.y) {
+	    parent = a;
+	    child = b;
+	} else {
+	    alert("you're trying to connect two equal nodes, so I don't know who's the parent.");
+	}
 	draw_line(a.space.context, a.x, a.y, b.x, b.y);
 	a.drawDefault();
 	b.drawDefault();
-	a.connectTo(b);
-	b.connectTo(a);
+	parent.addChild(child);
     } else {
 	alert("Did you just try to connect two nodes in different spaces?  It won't work, you know.");
     }
 }
 
+function deepCopyNode(orig) {
+    copy = makeNode(orig.name);
+    copy.children = orig.children.map(deepCopyNode);
+    return copy;
+}
+
 function graffleEval(n) {
     // Special forms first.
     if (n.name == 'leaf?') {
-	if (n.children().length == 1) {
-	    if (n.children()[0].children().length == 0) {
+	if (n.children.length == 1) {
+	    if (n.children[0].children.length == 0) {
 		return makeNode('t');
 	    } else {
 		return makeNode('f');
 	    }
 	} else {
 	    alert('Error: leaf? expected one argument, got ' +
-		  n.children().length);
+		  n.children.length);
+	    return;
+	}
+    } else if (n.name == 'quote') {
+	if (n.children.length == 1) {
+	    return n.children[0];
+	} else {
+	    alert('Error: quote expected one argument, got ' +
+		  n.children.length);
 	    return;
 	}
     }
     // Regular functions: first eval all children:
-    children = n.children().map(graffleEval);
+    children = n.children.map(graffleEval);
     if (n.name == '+') {
-	return makeNode(children.reduce(function(a, b) {
-		    return a.name + b.name; }));
+	return children.reduce(function(a, b) { return makeNode(a.name + b.name); });
     } else if (n.name == '-') {
-	return makeNode(children.reduce(function(a, b) {
-		    return a.name - b.name; }));
+	return children.reduce(function(a, b) { return makeNode(a.name - b.name); });
     } else if (n.name == '*') {
-	return makeNode(children.reduce(function(a, b) {
-		    return a.name * b.name; }));
+	return children.reduce(function(a, b) { return makeNode(a.name * b.name); });
     } else if (n.name == '/') {
-	return makeNode(children.reduce(function(a, b) {
-		    return a.name / b.name; }));
+	return children.reduce(function(a, b) { return makeNode(a.name / b.name); });
     } else if (!isNaN(parseFloat(n.name))) {
 	return makeNode(parseFloat(n.name));
     } else {
 	alert(n.name + ' is not callable.');
     }
 }
+
 var mainspace;
 var resultspace;
 $(document).ready(function() {

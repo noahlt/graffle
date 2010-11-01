@@ -238,9 +238,9 @@ function graffleEval(n) {
     if (n.name == 'leaf?') {
 	if (n.children.length == 1) {
 	    if (n.children[0].children.length == 0) {
-		return makeNode('t');
+		return makeNode('true');
 	    } else {
-		return makeNode('f');
+		return makeNode('false');
 	    }
 	} else {
 	    alert('Error: leaf? expected one argument, got ' + n.children.length);
@@ -256,7 +256,14 @@ function graffleEval(n) {
     }
     // Regular functions: first eval all children:
     children = n.children.map(graffleEval);
-    if (n.name == '+') {
+    if (n.name == 'eq') {
+	for (var i = 1; i < children.length; i++) {
+	    if (children[i-1].name != children[i].name) {
+		return makeNode('false');
+	    }
+	}
+	return makeNode('true');
+    } else if (n.name == '+') {
 	return children.reduce(function(a, b) { return makeNode(a.name + b.name); });
     } else if (n.name == '-') {
 	return children.reduce(function(a, b) { return makeNode(a.name - b.name); });

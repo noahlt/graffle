@@ -27,7 +27,7 @@ function drawText(context, x, y, s) {
     context.fillText(s, x, y);
 }
 
-function draw_line(c, x1, y1, x2, y2) {
+function drawLine(c, x1, y1, x2, y2) {
     c.beginPath();
     c.moveTo(x1, y1);
     c.lineTo(x2, y2);
@@ -116,6 +116,8 @@ function makeSpace(name, canvasElement) {
 			  n.drawDefault();
 			  if (n.covers(canvasX, canvasY)) {
 			      var r = graffleEval(n);
+			      console.log('graffleEval returned:');
+			      console.log(r);
 			      placeNode(50, 50, r, resultspace);
 			  }
 		      });
@@ -153,8 +155,8 @@ function placeNode(x, y, node, space) {
     node.x = x;
     node.y = y;
     node.r = NODE_R;
-    if (node.children.length > 0) {
-	alert('now go make placeNode add child nodes to the same space.');
+    for (var i = 0; i < node.children.length; i++) {
+	placeNode(x + 75*i, y+75, node.children[i], space);
     }
     // geometry methods
     node.overlaps = function(x, y, r) {
@@ -172,11 +174,16 @@ function placeNode(x, y, node, space) {
 	drawCircle(this.space.context, this.x, this.y, this.r, '#222', bgcolor);
 	drawText(this.space.context, this.x, this.y, this.name);
     };
-    node.drawDefault = function() { this.draw('#FCF0AD'); };
-    node.drawActive = function() { this.draw('#669'); };
-    node.drawAsResult = function() {
-	drawCircle(this.space.context, 50, 50, this.r, '#222', '#FCF0AD');
-    };
+    node.drawTree = function(bgcolor) {
+	var node = this; // is this even necessary?
+	this.children.forEach(function(child) {
+		drawLine(node.space.context, node.x, node.y, child.x, child.y);
+		node.toChildren(function(child) { child.drawTree(bgcolor); });
+	    });
+	this.draw(bgcolor);
+    }
+    node.drawDefault = function() { this.drawTree('#FCF0AD'); };
+    node.drawActive = function() { this.drawTree('#669'); };
 
     // sync graphical tree with abstract tree
     node.syncChildOrder = function() {
@@ -200,7 +207,7 @@ function connectNodes(a, b) {
 	} else {
 	    alert("you're trying to connect two equal nodes, so I don't know who's the parent.");
 	}
-	draw_line(a.space.context, a.x, a.y, b.x, b.y);
+	drawLine(a.space.context, a.x, a.y, b.x, b.y);
 	a.drawDefault();
 	b.drawDefault();
 	parent.addChild(child);
@@ -210,7 +217,7 @@ function connectNodes(a, b) {
 }
 
 function deepCopyNode(orig) {
-    copy = makeNode(orig.name);
+    var copy = makeNode(orig.name);
     copy.children = orig.children.map(deepCopyNode);
     return copy;
 }
@@ -225,16 +232,14 @@ function graffleEval(n) {
 		return makeNode('f');
 	    }
 	} else {
-	    alert('Error: leaf? expected one argument, got ' +
-		  n.children.length);
+	    alert('Error: leaf? expected one argument, got ' + n.children.length);
 	    return;
 	}
     } else if (n.name == 'quote') {
 	if (n.children.length == 1) {
-	    return n.children[0];
+	    return deepCopyNode(n.children[0]);
 	} else {
-	    alert('Error: quote expected one argument, got ' +
-		  n.children.length);
+	    alert('Error: quote expected one argument, got ' + n.children.length);
 	    return;
 	}
     }

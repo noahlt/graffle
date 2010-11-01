@@ -234,26 +234,45 @@ function deepCopyNode(orig) {
 }
 
 function graffleEval(n) {
+    var nargs = n.children.length;
+    n.syncChildOrder(); // otherwise breaks non-commutative functions
     // Special forms first.
     if (n.name == 'leaf?') {
-	if (n.children.length == 1) {
+	if (nargs == 1) {
 	    if (n.children[0].children.length == 0) {
 		return makeNode('true');
 	    } else {
 		return makeNode('false');
 	    }
 	} else {
-	    alert('Error: leaf? expected one argument, got ' + n.children.length);
+	    alert('Error: leaf? expected one argument, got ' + nargs);
 	    return;
 	}
     } else if (n.name == 'quote') {
-	if (n.children.length == 1) {
+	if (nargs == 1) {
 	    return deepCopyNode(n.children[0]);
 	} else {
-	    alert('Error: quote expected one argument, got ' + n.children.length);
+	    alert('Error: quote expected one argument, got ' + nargs);
 	    return;
 	}
-    }
+    } else if (n.name == 'if') {
+	if (nargs != 3) {
+	    alert('Error: if expected 3 arguments, got ' + nargs);
+	    return;
+	} else {
+	    if (graffleEval(n.children[0]).name == 'true') {
+		//console.log('returning n.children[1]');
+		return graffleEval(n.children[1]);
+	    } else {
+		//console.log('returning n.children[2]');
+		return graffleEval(n.children[2]);
+	    }
+	}
+    } else if (n.name == 'true') {   // Boolean truth values. Do we want to
+	return deepCopyNode(n);      // make these more magical (ie, not just
+    } else if (n.name == 'false') {  // strings 'true' and 'false')?
+	return deepCopyNode(n);      // Also note that they return themselves
+    }                                // with all their children. Good?
     // Regular functions: first eval all children:
     children = n.children.map(graffleEval);
     if (n.name == 'eq') {

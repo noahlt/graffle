@@ -8,6 +8,11 @@ function strcoords(x, y) {
     return '(' + x + ', ' + y + ')';
 }
 
+function drawRect(context, x1, y1, x2, y2, fillstyle) {
+    context.fillStyle = fillstyle;
+    context.fillRect(x1, y1, x2, y2);
+}
+
 function drawCircle(context, x, y, r, borderstyle, fillstyle) {
     context.beginPath();
     // syntax reminder: x, y, r, start_angle, end_angle, anticlockwise
@@ -64,6 +69,11 @@ function makeSpace(name, canvasElement) {
     var space = {'name': name,
 		 'context': canvasElement.getContext('2d'),
 		 'nodes': new Array(0)};
+    space.clear = function() {
+	this.nodes = new Array(0);
+	drawRect(this.context, 0, 0, canvasElement.width, canvasElement.height,
+		 '#fff');
+    };
 
     $(canvasElement)
       .mousedown(function(e) {
@@ -118,6 +128,7 @@ function makeSpace(name, canvasElement) {
 			      var r = graffleEval(n);
 			      console.log('graffleEval returned:');
 			      console.log(r);
+			      resultspace.clear();
 			      placeNode(50, 50, r, resultspace);
 			  }
 		      });

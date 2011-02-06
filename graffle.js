@@ -233,6 +233,10 @@ function deepCopyNode(orig) {
     return copy;
 }
 
+function copyNode(orig) {
+    return makeNode(orig.name);
+}
+
 function graffleEval(n) {
     var nargs = n.children.length;
     n.syncChildOrder(); // otherwise breaks non-commutative functions
@@ -274,22 +278,34 @@ function graffleEval(n) {
 	return deepCopyNode(n);      // Also note that they return themselves
     }                                // with all their children. Good?
     // Regular functions: first eval all children:
-    children = n.children.map(graffleEval);
+    args = n.children.map(graffleEval);
     if (n.name == 'eq') {
-	for (var i = 1; i < children.length; i++) {
-	    if (children[i-1].name != children[i].name) {
+	for (var i = 1; i < args.length; i++) {
+	    if (args[i-1].name != args[i].name) {
 		return makeNode('false');
 	    }
 	}
 	return makeNode('true');
+    } else if (n.name == 'maketree') {
+	var r = deepCopyNode(args[0]);
+	for (var i = 1; i < args.length; i++) {
+	    r.addChild(deepCopyNode(args[i]));
+	}
+	return r;
+    } else if (n.name == 'root') {
+	if (nargs != 1) {
+	    alert('Error: root expected 1 argument, got ' + nargs);
+	} else {
+	    return copyNode(args[0]);
+	}
     } else if (n.name == '+') {
-	return children.reduce(function(a, b) { return makeNode(a.name + b.name); });
+	return args.reduce(function(a, b) {return makeNode(a.name + b.name); });
     } else if (n.name == '-') {
-	return children.reduce(function(a, b) { return makeNode(a.name - b.name); });
+	return args.reduce(function(a, b) {return makeNode(a.name - b.name); });
     } else if (n.name == '*') {
-	return children.reduce(function(a, b) { return makeNode(a.name * b.name); });
+	return args.reduce(function(a, b) {return makeNode(a.name * b.name); });
     } else if (n.name == '/') {
-	return children.reduce(function(a, b) { return makeNode(a.name / b.name); });
+	return args.reduce(function(a, b) {return makeNode(a.name / b.name); });
     } else if (!isNaN(parseFloat(n.name))) {
 	return makeNode(parseFloat(n.name));
     } else {

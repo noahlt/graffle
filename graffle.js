@@ -237,80 +237,125 @@ function copyNode(orig) {
     return makeNode(orig.name);
 }
 
-function graffleEval(n) {
-    var nargs = n.children.length;
-    n.syncChildOrder(); // otherwise breaks non-commutative functions
-    // Special forms first.
-    if (n.name == 'leaf?') {
-	if (nargs == 1) {
-	    if (n.children[0].children.length == 0) {
+special_forms = {
+    'leaf?': function(exp, env) {
+	if (exp.children.length == 1) {
+	    if (exp.children[0].children.length == 0) {
 		return makeNode('true');
 	    } else {
 		return makeNode('false');
 	    }
 	} else {
-	    alert('Error: leaf? expected one argument, got ' + nargs);
+	    alert('Error: leaf? expected one argument, got ' + exp.children.length);
 	    return;
 	}
-    } else if (n.name == 'quote') {
-	if (nargs == 1) {
-	    return deepCopyNode(n.children[0]);
+    },
+
+    'quote': function(exp, env) {
+	if (exp.children.length == 1) {
+	    return deepCopyNode(exp.children[0]);
 	} else {
-	    alert('Error: quote expected one argument, got ' + nargs);
+	    alert('Error: quote expected one argument, got ' + exp.children.length);
 	    return;
 	}
-    } else if (n.name == 'if') {
-	if (nargs != 3) {
-	    alert('Error: if expected 3 arguments, got ' + nargs);
+    },
+
+    'if': function(exp, env) {
+	if (exp.children.length != 3) {
+	    alert('Error: if expected 3 arguments, got ' + exp.children.length);
 	    return;
 	} else {
-	    if (graffleEval(n.children[0]).name == 'true') {
+	    if (graffleEval(exp.children[0]).name == 'true') {
 		//console.log('returning n.children[1]');
-		return graffleEval(n.children[1]);
+		return graffleEval(exp.children[1]);
 	    } else {
 		//console.log('returning n.children[2]');
-		return graffleEval(n.children[2]);
+		return graffleEval(exp.children[2]);
 	    }
 	}
-    } else if (n.name == 'true') {   // Boolean truth values. Do we want to
-	return deepCopyNode(n);      // make these more magical (ie, not just
-    } else if (n.name == 'false') {  // strings 'true' and 'false')?
-	return deepCopyNode(n);      // Also note that they return themselves
-    }                                // with all their children. Good?
-    // Regular functions: first eval all children:
-    args = n.children.map(graffleEval);
-    if (n.name == 'eq') {
+    },
+
+};
+
+
+builtin_functions = {
+    'eq': function(args, env) {
 	for (var i = 1; i < args.length; i++) {
 	    if (args[i-1].name != args[i].name) {
 		return makeNode('false');
 	    }
 	}
 	return makeNode('true');
-    } else if (n.name == 'maketree') {
+    },
+
+    'maketree': function(args, env) {
 	var r = deepCopyNode(args[0]);
 	for (var i = 1; i < args.length; i++) {
 	    r.addChild(deepCopyNode(args[i]));
 	}
 	return r;
-    } else if (n.name == 'root') {
+    },
+	
+    'root': function(args, env) {
 	if (nargs != 1) {
 	    alert('Error: root expected 1 argument, got ' + nargs);
 	} else {
 	    return copyNode(args[0]);
 	}
-    } else if (n.name == '+') {
+    },
+
+    '+': function(args, env) {
 	return args.reduce(function(a, b) {return makeNode(a.name + b.name); });
-    } else if (n.name == '-') {
+    },
+
+    '-': function(args, env) {
 	return args.reduce(function(a, b) {return makeNode(a.name - b.name); });
-    } else if (n.name == '*') {
+    },
+
+    '*': function(args, env) {
 	return args.reduce(function(a, b) {return makeNode(a.name * b.name); });
-    } else if (n.name == '/') {
+    },
+
+    '/': function(args, env) {
 	return args.reduce(function(a, b) {return makeNode(a.name / b.name); });
-    } else if (!isNaN(parseFloat(n.name))) {
-	return makeNode(parseFloat(n.name));
-    } else {
-	alert(n.name + ' is not callable.');
+    },
+};
+
+
+function graffleEval(exp) {
+    var nargs = exp.children.length;
+    env = {};
+    // Make sure Graffle's internal order of this node's children is
+    // the same as the on-screen order of the node's childen;
+    // otherwise non-commutative functions will break.
+    exp.syncChildOrder();
+    var successful_call = false;
+
+    // self-evaluating things. (right now: only numbers, true, false)
+    if (!isNaN(parseFloat(exp.name))) {
+	return makeNode(parseFloat(exp.name));
+    } else if (exp.name == 'true') {
+	return makeNode('true');
+    } else if (exp.name == 'false') {
+	return makeNode('false');
     }
+
+    // Special forms
+    for (var form_name in special_forms) {
+	if (exp.name == form_name) {
+	    return special_forms[form_name](exp, env);
+	}
+    }
+
+    // Regular functions after eval'ing all children:
+    args = exp.children.map(graffleEval);
+    for (var builtin_name in builtin_functions) {
+	if (exp.name == builtin_name) {
+	    return builtin_functions[exp.name](args, env);
+	}
+    }
+
+    alert(exp.name + ' is not callable.');
 }
 
 var mainspace;

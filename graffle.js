@@ -257,6 +257,7 @@ special_forms = {
 
     'quote': function(exp, env) {
 	if (exp.children.length == 1) {
+	    // FIXME: quote needs to sync child order first
 	    return deepCopyNode(exp.children[0]);
 	} else {
 	    alert('Error: quote expected one argument, got ' + exp.children.length);
@@ -269,10 +270,10 @@ special_forms = {
 	    alert('Error: if expected 3 arguments, got ' + exp.children.length);
 	    return;
 	} else {
-	    if (graffleEval(exp.children[0]).name == 'true') {
-		return graffleEval(exp.children[1]);
+	    if (graffleEval(exp.children[0], env).name == 'true') {
+		return graffleEval(exp.children[1], env);
 	    } else {
-		return graffleEval(exp.children[2]);
+		return graffleEval(exp.children[2], env);
 	    }
 	}
     },
@@ -351,27 +352,44 @@ builtin_functions = {
     },
 	
     'root': function(args, env) {
-	if (nargs != 1) {
-	    alert('Error: root expected 1 argument, got ' + nargs);
+	if (args.length != 1) {
+	    alert('Error: root expected 1 argument, got ' + args.length);
 	} else {
 	    return copyNode(args[0]);
 	}
     },
 
+    'child': function(args, env) {
+	if (args.length != 2) {
+	    alert('Error: child expected 2 arguments, got ' + args.length);
+	} else {
+	    var n = parseInt(args[1].name); // FIXME typing might be nice here.
+	    return copyNode(args[0].children[n]);
+	}
+    },
+
     '+': function(args, env) {
-	return args.reduce(function(a, b) {return makeNode(a.name + b.name); });
+	return args.reduce(function(a, b) {
+		return makeNode(parseFloat(a.name) + parseFloat(b.name));
+	    });
     },
 
     '-': function(args, env) {
-	return args.reduce(function(a, b) {return makeNode(a.name - b.name); });
+	return args.reduce(function(a, b) {
+		return makeNode(parseFloat(a.name) - parseFloat(b.name));
+	    });
     },
 
     '*': function(args, env) {
-	return args.reduce(function(a, b) {return makeNode(a.name * b.name); });
+	return args.reduce(function(a, b) {
+		return makeNode(parseFloat(a.name) * parseFloat(b.name));
+	    });
     },
 
     '/': function(args, env) {
-	return args.reduce(function(a, b) {return makeNode(a.name / b.name); });
+	return args.reduce(function(a, b) {
+		return makeNode(parseFloat(a.name) / parseFloat(b.name));
+	    });
     },
 };
 
@@ -392,7 +410,7 @@ function graffleEval(exp, env) {
     if (exp.children.length == 0) {
 	// self-evaluating things. (right now: only numbers, true, false)
 	if (!isNaN(parseFloat(exp.name))) {
-	    return makeNode(parseFloat(exp.name));
+	    return makeNode(exp.name);
 	} else if (exp.name == 'true') {
 	    return makeNode('true');
 	} else if (exp.name == 'false') {

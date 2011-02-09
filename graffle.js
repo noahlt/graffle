@@ -125,7 +125,7 @@ function makeSpace(name, canvasElement) {
 		  space.nodes.forEach(function(n) {
 			  n.drawDefault();
 			  if (n.covers(canvasX, canvasY)) {
-			      var r = graffleEval(n);
+			      var r = graffleEval(n, global_env);
 			      console.log('graffleEval returned:');
 			      console.log(r);
 			      resultspace.clear();
@@ -266,13 +266,21 @@ special_forms = {
 	    return;
 	} else {
 	    if (graffleEval(exp.children[0]).name == 'true') {
-		//console.log('returning n.children[1]');
 		return graffleEval(exp.children[1]);
 	    } else {
-		//console.log('returning n.children[2]');
 		return graffleEval(exp.children[2]);
 	    }
 	}
+    },
+
+    'define': function(exp, env) {
+	console.log(exp.children[0]);
+	console.log(exp.children[0].length);
+	if (exp.children.length != 2) {
+	    alert('Error: define expected 2 arguments, got ' + exp.children.length);
+	}
+        global_env[exp.children[0].name] = graffleEval(exp.children[1], env);
+	return global_env[exp.children[0].name];
     },
 
 };
@@ -321,23 +329,32 @@ builtin_functions = {
     },
 };
 
+global_env = {};
 
-function graffleEval(exp) {
+
+function graffleEval(exp, env) {
+    console.log('Expression: ' + exp.name); console.log(exp);
+    console.log('Environment: ' + exp.name); console.log(env);
     var nargs = exp.children.length;
-    env = {};
     // Make sure Graffle's internal order of this node's children is
     // the same as the on-screen order of the node's childen;
     // otherwise non-commutative functions will break.
     exp.syncChildOrder();
     var successful_call = false;
 
-    // self-evaluating things. (right now: only numbers, true, false)
-    if (!isNaN(parseFloat(exp.name))) {
-	return makeNode(parseFloat(exp.name));
-    } else if (exp.name == 'true') {
-	return makeNode('true');
-    } else if (exp.name == 'false') {
-	return makeNode('false');
+    if (exp.children.length == 0) {
+	// self-evaluating things. (right now: only numbers, true, false)
+	if (!isNaN(parseFloat(exp.name))) {
+	    return makeNode(parseFloat(exp.name));
+	} else if (exp.name == 'true') {
+	    return makeNode('true');
+	} else if (exp.name == 'false') {
+	    return makeNode('false');
+	}
+	// Variable substitution.
+	if (exp.name in env) {
+	    return env[exp.name];
+	}
     }
 
     // Special forms
@@ -348,14 +365,18 @@ function graffleEval(exp) {
     }
 
     // Regular functions after eval'ing all children:
-    args = exp.children.map(graffleEval);
+    args = exp.children.map(function(inner_expression) {
+	    return graffleEval(inner_expression, env);
+	});
+    console.log('Args before evalling ' + exp.name + ' :');
+    console.log(args);
     for (var builtin_name in builtin_functions) {
 	if (exp.name == builtin_name) {
 	    return builtin_functions[exp.name](args, env);
 	}
     }
-
-    alert(exp.name + ' is not callable.');
+    
+    alert(exp.name + ' is undefined.');
 }
 
 var mainspace;

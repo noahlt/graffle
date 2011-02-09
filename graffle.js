@@ -129,7 +129,11 @@ function makeSpace(name, canvasElement) {
 			      console.log('graffleEval returned:');
 			      console.log(r);
 			      resultspace.clear();
-			      placeNode(50, 50, r, resultspace);
+			      // FIXME: this is a hacky way to determine
+			      // whether r is a tree.
+			      if ('children' in r) {
+				  placeNode(50, 50, r, resultspace);
+			      }
 			  }
 		      });
 	      }
@@ -283,8 +287,50 @@ special_forms = {
 	return global_env[exp.children[0].name];
     },
 
+    'lambda': function(exp, env) {
+	if (exp.children.length != 2) {
+	    alert('Error: lambda expected 2 arguments, got ' + exp.children.length);
+	    return;
+	}
+	if (exp.children[0].name != 'args') {
+	    alert('Error: The first argument to lambda should be args.');
+	    return;
+	}
+
+	argnames = exp.children[0].children.map(function(node) {
+		return node.name;
+	    });
+	console.log(argnames);
+
+	return function(args, calling_env) {
+	    if (args.length != argnames.length) {
+		alert('Error: lambda function expected ' +
+		      argnames.length + 'arguments, got ' + args.length);
+		return;
+	    }
+	    function_namespace = {};
+	    for (var i=0; i < args.length; i++) {
+		function_namespace[argnames[i]] = args[i];
+	    }
+	    // This version allows global variables:
+	    //return graffleEval(exp, composeNamespaces(env, function_namespace));
+	    // For now, we'll only have function-scoped variables:
+	    return graffleEval(exp.children[1], function_namespace);
+	}
+    }
 };
 
+function composeNamespaces() {
+    // Called like this: composeNamespaces(global_env, local_env)
+    // returns a namespace with both global_env and local_env
+    // combined, with local_env (ie, the rightmost argument) taking
+    // precedence in the case of collisions.
+
+    // iterate over namespaces
+    for (var i = 0; i < arguments.length; i++) {
+}
+}
+	
 
 builtin_functions = {
     'eq': function(args, env) {
@@ -329,6 +375,7 @@ builtin_functions = {
     },
 };
 
+
 global_env = {};
 
 
@@ -364,7 +411,7 @@ function graffleEval(exp, env) {
 	}
     }
 
-    // Regular functions after eval'ing all children:
+    // Built-in functions after eval'ing all children:
     args = exp.children.map(function(inner_expression) {
 	    return graffleEval(inner_expression, env);
 	});
@@ -374,6 +421,12 @@ function graffleEval(exp, env) {
 	if (exp.name == builtin_name) {
 	    return builtin_functions[exp.name](args, env);
 	}
+    }
+
+    // User-defined functions
+    if (exp.name in env) {
+	console.log('Calling a user-defined function!');
+	return env[exp.name](args, env);
     }
     
     alert(exp.name + ' is undefined.');

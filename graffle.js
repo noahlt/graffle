@@ -56,13 +56,42 @@ var NODE_R = 25;
 
 var activeNode= false; // points to the node which a user has clicked.
 
-function find_node(name) {
+function find_node_by_name(name) {
     nodesWithThisName = ns.filter(function(n) { return n.name == name; });
     if (1 < nodesWithThisName.length) {
 	alert('There are multiple nodes named ' + name + '! I give up.');
     } else {
 	return nodesWithThisName[0];
     }
+}
+
+function nodeAt(space, x, y) {
+    var r = false;
+    space.nodes.forEach(function(n) {
+	    if (n.covers(x, y)) {
+		r = n; // HACK to return n from inside inner function
+	    }
+	});
+    return r;
+}
+
+function activateNode(n) {
+    n.drawActive();
+    activeNode = n;
+}
+
+function activateBranch(n) {
+    n.drawActive();
+    n.toChildren(function(child) {
+	    child.drawActive();
+	});
+}
+
+
+function connectToActiveNode(n) {
+    connectNodes(activeNode, n);
+    activeNode.drawDefault();
+    activeNode = false;
 }
 
 function makeSpace(name, canvasElement) {
@@ -75,69 +104,105 @@ function makeSpace(name, canvasElement) {
 		 '#fff');
     };
 
-    $(canvasElement)
-      .mousedown(function(e) {
-	      e.preventDefault();
-	      var canvasX = e.clientX - $(this).position().left;
-	      var canvasY = e.clientY - $(this).position().top;
-	      if (e.which == 1) { // left click
-		  space.nodes.forEach(function(n) {
-			  // if the user mousedowned on a node...
-			  if (n.covers(canvasX, canvasY)) {
-			      n.drawActive();
-			      activeNode = n;
-			  }
-		      });
-	      } else if (e.which == 3) { // right click
-		  space.nodes.forEach(function(n) {
-			  if (n.covers(canvasX, canvasY)) {
-			      n.drawActive();
-			      n.toChildren(function(child) {
-				      child.drawActive();
-				  });
-			  }
-		      });
-	      }
-	  })
-      .mouseup(function(e) {
-	      e.preventDefault();
-	      var canvasX = e.clientX - $(this).position().left;
-	      var canvasY = e.clientY - $(this).position().top;
-	      if (e.which == 1) { // left click
-		  if (activeNode) {
-		      space.nodes.forEach(function(n) {
-			      if (n.covers(canvasX, canvasY)) {
-				  connectNodes(activeNode, n);
-			      }
-			  });
-		      activeNode.drawDefault();
-		      activeNode = false;
-		  } else {
-		      if (space.nodes.every(function(n) {
-				  return !n.overlaps(canvasX, canvasY,
-						     NODE_R);
-			      })) {
-			  n = makeNode('');
-			  placeNode(canvasX, canvasY, n, space);
-		      };
-		  }
-	      } else if (e.which == 3) { // right click
-		  space.nodes.forEach(function(n) {
-			  n.drawDefault();
-			  if (n.covers(canvasX, canvasY)) {
-			      var r = graffleEval(n, global_env);
-			      console.log('graffleEval returned:');
-			      console.log(r);
-			      resultspace.clear();
-			      // FIXME: this is a hacky way to determine
-			      // whether r is a tree.
-			      if ('children' in r) {
-				  placeNode(50, 50, r, resultspace);
-			      }
-			  }
-		      });
-	      }
-	  });
+    canvasElement.onmousedown = function(e) {
+	e.preventDefault();
+	var canvasX = e.clientX - $(this).position().left;
+	var canvasY = e.clientY - $(this).position().top;
+	var n = nodeAt(space, canvasX, canvasY);
+	if (n) { // clicked on an existing node
+	    if (e.which == 1) { // left click
+		activateNode(nodeAt(space, canvasX, canvasY));
+	    } else if (e.which == 3) { // right click
+		activateBranch(nodeAt(space, canvasX, canvasY));
+	    }
+	}
+    }
+
+    canvasElement.onmouseup = function(e) {
+	e.preventDefault();
+	var canvasX = e.clientX - $(this).position().left;
+	var canvasY = e.clientY - $(this).position().top;
+	if (e.which == 1) { // left click
+	    if (activeNode) {
+		connectToActiveNode(nodeAt(space, canvasX, canvasY));
+	    } else {
+		if (space.nodes.every(function(n) {
+			    return !n.overlaps(canvasX, canvasY, NODE_R);
+			})) {
+		    n = makeNode('');
+		    placeNode(canvasX, canvasY, n, space);
+		};
+	    }
+	} else if (e.which == 3) { // right click
+	    space.nodes.forEach(function(n) {
+		    n.drawDefault();
+		    if (n.covers(canvasX, canvasY)) {
+			var r = graffleEval(n, global_env);
+			console.log('graffleEval returned:');
+			console.log(r);
+			resultspace.clear();
+			// FIXME: this is a hacky way to determine
+			// whether r is a tree.
+			if ('children' in r) {
+			    placeNode(50, 50, r, resultspace);
+			}
+		    }
+		});
+	}
+    }
+    /* Great resources for touch events:
+   http://www.sitepen.com/blog/2008/07/10/touching-and-gesturing-on-the-iphone/
+   http://www.quirksmode.org/blog/archives/2010/02/persistent_touc.html
+    */
+    canvasElement.ontouchstart = function(e) {
+	e.preventDefault();
+	if (e.changedTouches.length == 1) { // only handle one touch for now
+	    var canvasX = e.changedTouches[0].pageX - $(this).position().left;
+	    var canvasY = e.changedTouches[0].pageY - $(this).position().top;
+	    n = nodeAt(space, canvasX, canvasY);
+	    if (n) {
+		activateNode(n);
+	    }
+	}
+
+    }
+
+    canvasElement.ontouchend = function(e) {
+	e.preventDefault();
+	if (e.changedTouches.length == 1) { // only handle one touch for now
+	    var canvasX = e.changedTouches[0].pageX - $(this).position().left;
+	    var canvasY = e.changedTouches[0].pageY - $(this).position().top;
+	    n = nodeAt(space, canvasX, canvasY);
+	    $("#debug").text(typeof n);
+	    if (!activeNode) { // make a new node
+		/* HACK: setTimeout() with zero delay forces
+		 * placenode() to be run with delay. Something about
+		 * starting (or using) the keyboard with no delay
+		 * created weird nondeterministic errors where some
+		 * touch events would register as being physically
+		 * close (onscreen) to the previous touch event, even
+		 * when the newer event happened far away.
+		 * 
+		 * I don't totally understand why this works. Credit
+		 * to Tim Cameron Ryan.
+		 */
+		setTimeout(function() {
+			if (space.nodes.every(function(n) {
+				   return !n.overlaps(canvasX, canvasY, NODE_R);
+				})) {
+			    placeNode(canvasX, canvasY, makeNode(''), space);
+			}
+		    }, 0);
+	    } else if (activeNode == n) { // eval
+		n.drawDefault();
+		resultspace.clear();
+		placeNode(50, 50, graffleEval(n, global_env), resultspace);
+	    } else if (activeNode != n) { // connect the two nodes
+		connectToActiveNode(n);
+	    }
+	    activeNode = false;
+	}
+    }
 
     return space;
 }
@@ -279,8 +344,6 @@ special_forms = {
     },
 
     'define': function(exp, env) {
-	console.log(exp.children[0]);
-	console.log(exp.children[0].length);
 	if (exp.children.length != 2) {
 	    alert('Error: define expected 2 arguments, got ' + exp.children.length);
 	}
@@ -301,7 +364,6 @@ special_forms = {
 	argnames = exp.children[0].children.map(function(node) {
 		return node.name;
 	    });
-	console.log(argnames);
 
 	return function(args, calling_env) {
 	    if (args.length != argnames.length) {
@@ -329,7 +391,7 @@ function composeNamespaces() {
 
     // iterate over namespaces
     for (var i = 0; i < arguments.length; i++) {
-}
+    }
 }
 	
 
@@ -398,8 +460,6 @@ global_env = {};
 
 
 function graffleEval(exp, env) {
-    console.log('Expression: ' + exp.name); console.log(exp);
-    console.log('Environment: ' + exp.name); console.log(env);
     var nargs = exp.children.length;
     // Make sure Graffle's internal order of this node's children is
     // the same as the on-screen order of the node's childen;
@@ -433,8 +493,6 @@ function graffleEval(exp, env) {
     args = exp.children.map(function(inner_expression) {
 	    return graffleEval(inner_expression, env);
 	});
-    console.log('Args before evalling ' + exp.name + ' :');
-    console.log(args);
     for (var builtin_name in builtin_functions) {
 	if (exp.name == builtin_name) {
 	    return builtin_functions[exp.name](args, env);
@@ -443,7 +501,6 @@ function graffleEval(exp, env) {
 
     // User-defined functions
     if (exp.name in env) {
-	console.log('Calling a user-defined function!');
 	return env[exp.name](args, env);
     }
     

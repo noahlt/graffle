@@ -138,11 +138,10 @@ function makeSpace(name, canvasElement) {
 		    n.drawDefault();
 		    if (n.covers(canvasX, canvasY)) {
 			var r = graffleEval(n, global_env);
-			console.log('graffleEval returned:');
-			console.log(r);
 			resultspace.clear();
-			// FIXME: this is a hacky way to determine
-			// whether r is a tree.
+			/* FIXME: this is a hacky way to determine
+			 * whether r is a tree.  It prevents graffleEval
+			 * from drawing, most importantly, function objects. */
 			if ('children' in r) {
 			    placeNode(50, 50, r, resultspace);
 			}
@@ -173,8 +172,7 @@ function makeSpace(name, canvasElement) {
 	    var canvasX = e.changedTouches[0].pageX - $(this).position().left;
 	    var canvasY = e.changedTouches[0].pageY - $(this).position().top;
 	    n = nodeAt(space, canvasX, canvasY);
-	    $("#debug").text(typeof n);
-	    if (!activeNode) { // make a new node
+	    if (!activeNode) { // No active node, so make a new node
 		/* HACK: setTimeout() with zero delay forces
 		 * placenode() to be run with delay. Something about
 		 * starting (or using) the keyboard with no delay
@@ -184,8 +182,7 @@ function makeSpace(name, canvasElement) {
 		 * when the newer event happened far away.
 		 * 
 		 * I don't totally understand why this works. Credit
-		 * to Tim Cameron Ryan.
-		 */
+		 * to Tim Cameron Ryan. */
 		setTimeout(function() {
 			if (space.nodes.every(function(n) {
 				   return !n.overlaps(canvasX, canvasY, NODE_R);
@@ -193,11 +190,11 @@ function makeSpace(name, canvasElement) {
 			    placeNode(canvasX, canvasY, makeNode(''), space);
 			}
 		    }, 0);
-	    } else if (activeNode == n) { // eval
+	    } else if (activeNode == n) { // One active node was tapped, so eval
 		n.drawDefault();
 		resultspace.clear();
 		placeNode(50, 50, graffleEval(n, global_env), resultspace);
-	    } else if (activeNode != n) { // connect the two nodes
+	    } else if (activeNode != n) { // Connect the active & hovered nodes
 		connectToActiveNode(n);
 	    }
 	    activeNode = false;
@@ -207,8 +204,16 @@ function makeSpace(name, canvasElement) {
     return space;
 }
 
+function varlistupdate() {
+    $("#varlist").empty();
+    for (varname in global_env) {
+	$("#varlist").append("<li>" + varname + " = " +
+			     repr(global_env[varname]) + "</li>");
+    }
+}
+
 function makeNode(name) {
-    n = { 'name': name, 'parent': null, 'children': new Array(0) };
+    var n = { 'name': name, 'parent': null, 'children': new Array(0) };
 
     // graph methods
     n.addChild = function(child) {
@@ -222,11 +227,33 @@ function makeNode(name) {
 	    });
     }
 
+    n.asLisp = function() {
+	if (n.children.length == 0) {
+	    return n.name;
+	} else {
+	    return "(" + n.name + " " +
+	        n.children.map(function(child) {
+			return child.asLisp();
+		    }).join(" ") + ")";
+	}
+    }
+
     // Allowing empty name strings then setting them interactively is a hack.
     if (n.name == '') {
 	n.name = prompt("This node's name:");
     }
     return n;
+}
+
+// Function to call when printing a Graffle object as a string
+function repr(o) {
+    if (typeof o == "function") {
+	return "[ a function ]";
+    } else if ('children' in o) { // hacky way to identify graffle object
+	return o.asLisp();
+    } else {
+	return "[ non-graffle object ]";
+    }
 }
 
 function placeNode(x, y, node, space) {
@@ -348,6 +375,7 @@ special_forms = {
 	    alert('Error: define expected 2 arguments, got ' + exp.children.length);
 	}
         global_env[exp.children[0].name] = graffleEval(exp.children[1], env);
+	varlistupdate();
 	return global_env[exp.children[0].name];
     },
 
@@ -513,4 +541,9 @@ $(document).ready(function() {
 	$('#main').bind('contextmenu', function(e) { return false; });
 	mainspace = makeSpace('main', $('#main').get(0));
 	resultspace = makeSpace('result', $('#result').get(0));
+	$("#clear").click(function() {
+		mainspace.clear();
+		resultspace.clear();
+	    });
+	$("#varlistupdate").click(varlistupdate);
     });

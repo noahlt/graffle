@@ -9,11 +9,21 @@
     canvas {
       border: 1px dotted #333;
     }
+    #variables-sidebar {
+      float: right;
+    }
   </style>
 </head>
 
 <body>
   <h1>Graffle</h1>
+  <input type="button" value="Clear" id="clear"><br>
+  <div id="variables-sidebar">
+    <h2>Variables:</h2>
+    <input type="button" value="Update variable list" id="varlistupdate"><br>
+    <ul id="varlist">
+    </ul>
+  </div>
   <canvas id="main" width="500" height="400"></canvas>
   <h2>Result:</h2>
   <canvas id="result" width="500" height="100"></canvas>
